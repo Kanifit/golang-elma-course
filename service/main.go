@@ -54,8 +54,32 @@ func router() *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
+	client := &http.Client{Timeout: time.Minute}
+
+	router.Get("/tasks", func(writer http.ResponseWriter, request *http.Request) {
+
+		tasks := []string{cyclicRotation, uniqueElement, sequenceCheck, searchElement}
+		results := map[string]string{}
+
+		for _, taskName := range tasks {
+			result, err := solveTask(taskName, client, request)
+			if err != nil {
+				writer.WriteHeader(http.StatusBadRequest)
+				return
+			}
+			results[taskName] = string(result)
+		}
+
+		res, err := json.Marshal(results)
+		if err != nil {
+			writer.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		_, _ = writer.Write(res)
+	})
+
 	router.Get("/task/{taskName}", func(writer http.ResponseWriter, request *http.Request) {
-		client := &http.Client{Timeout: time.Minute}
 
 		var taskName string
 		switch chi.URLParam(request, "taskName") {
