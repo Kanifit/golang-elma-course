@@ -5,6 +5,7 @@ import (
 	"sort"
 )
 
+//Solution решение задачи
 func Solution(set []int) int {
 	sort.Ints(set)
 

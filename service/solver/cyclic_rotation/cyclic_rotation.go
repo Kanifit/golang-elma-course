@@ -1,6 +1,7 @@
 // Package cyclic_rotation Циклическая ротация
 package cyclic_rotation
 
+//Solution решение задачи
 func Solution(set []int, shift int) []int {
 
 	if shift > len(set) {
