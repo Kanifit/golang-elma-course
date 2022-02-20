@@ -1,20 +1,11 @@
-package main
+// Package cyclic_rotation Циклическая ротация
+package cyclic_rotation
 
-import (
-	"fmt"
-)
+func Solution(set []int, shift int) []int {
 
-func main() {
-	A := []int{3, 8, 9, 7, 6}
-	K := 3
-
-	if K > len(A) {
-		K = K - len(A)*(K%len(A))
+	if shift > len(set) {
+		shift = shift % len(set)
 	}
 
-	fmt.Println(Solution(A, K))
-}
-
-func Solution(A []int, K int) []int {
-	return append(A[len(A)-K:], A[0:len(A)-K]...)
+	return append(set[len(set)-shift:], set[0:len(set)-shift]...)
 }
