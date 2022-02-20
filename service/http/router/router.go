@@ -7,6 +7,7 @@ import (
 	"github.com/go-chi/chi/middleware"
 	"golang-elma-course/service/task"
 	"net/http"
+	"sync"
 	"time"
 )
 
@@ -22,14 +23,22 @@ func Router() *chi.Mux {
 		tasks := []string{task.CyclicRotation, task.UniqueElement, task.SequenceCheck, task.SearchElement}
 		results := map[string]string{}
 
+		var wg sync.WaitGroup
+		wg.Add(4)
+
 		for _, taskName := range tasks {
-			result, err := task.Solve(taskName, client, request)
-			if err != nil {
-				writer.WriteHeader(http.StatusBadRequest)
-				return
+			tasker := func(name string, c *http.Client, req *http.Request) {
+				defer wg.Done()
+				result, err := task.Solve(name, c, req)
+				if err != nil {
+					writer.WriteHeader(http.StatusBadRequest)
+					return
+				}
+				results[name] = string(result)
 			}
-			results[taskName] = string(result)
+			go tasker(taskName, client, request)
 		}
+		wg.Wait()
 
 		res, err := json.Marshal(results)
 		if err != nil {
