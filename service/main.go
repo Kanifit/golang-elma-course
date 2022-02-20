@@ -3,9 +3,13 @@ package main
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
 	"golang-elma-course/cyclic_rotation"
+	"golang-elma-course/search_element"
+	"golang-elma-course/sequence_check"
+	"golang-elma-course/unique_element"
 	"io"
 	"net/http"
 	"net/url"
@@ -21,9 +25,14 @@ func main() {
 
 }
 
-const SolutionServerPath = "http://116.203.203.76:3000"
-
-const UserName = "Kanifit"
+const (
+	SolutionServerPath = "http://116.203.203.76:3000"
+	UserName           = "Kanifit"
+	cyclicRotation     = "Циклическая ротация"
+	uniqueElement      = "Чудные вхождения в массив"
+	sequenceCheck      = "Проверка последовательности"
+	searchElement      = "Поиск отсутствующего элемента"
+)
 
 type Data struct {
 	Set   []int
@@ -32,7 +41,7 @@ type Data struct {
 
 type TaskResults struct {
 	Payload [][]interface{} `json:"payload"`
-	Results [][]int         `json:"results"`
+	Results []interface{}   `json:"results"`
 }
 
 type Solution struct {
@@ -45,25 +54,25 @@ func router() *chi.Mux {
 	router := chi.NewRouter()
 	router.Use(middleware.Logger)
 
-	router.Get("/task/Циклическая ротация", func(writer http.ResponseWriter, request *http.Request) {
-
+	router.Get("/task/{taskName}", func(writer http.ResponseWriter, request *http.Request) {
 		client := &http.Client{Timeout: time.Minute}
 
-		dataSets, err := getDataSets(client, request)
-		if err != nil {
+		var taskName string
+		switch chi.URLParam(request, "taskName") {
+		case cyclicRotation:
+			taskName = cyclicRotation
+		case uniqueElement:
+			taskName = uniqueElement
+		case sequenceCheck:
+			taskName = sequenceCheck
+		case searchElement:
+			taskName = searchElement
+		default:
 			writer.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		data, err := parseDataSets(dataSets)
-		if err != nil {
-			writer.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		solution := getTaskSolution(data)
-
-		result, err := getResult(solution, client, request)
+		result, err := solveTask(taskName, client, request)
 		if err != nil {
 			writer.WriteHeader(http.StatusBadRequest)
 			return
@@ -76,10 +85,9 @@ func router() *chi.Mux {
 	return router
 }
 
-func getDataSets(client *http.Client, request *http.Request) ([]byte, error) {
-	path, _ := url.Parse(SolutionServerPath + "/tasks/Циклическая ротация")
+func getDataSets(taskName string, client *http.Client, request *http.Request) ([]byte, error) {
+	path, _ := url.Parse(SolutionServerPath + "/tasks/" + taskName)
 	newRequest, err := getNewRequest(path, http.MethodGet, []byte{}, request)
-
 	if err != nil {
 		return nil, err
 	}
@@ -142,7 +150,10 @@ func parseDataSets(dataSet []byte) ([]Data, error) {
 				dataSet.Set = append(dataSet.Set, int(setElement.(float64)))
 			}
 
-			dataSet.Shift = int(element[1].(float64))
+			if len(element) > 1 {
+				dataSet.Shift = int(element[1].(float64))
+			}
+
 			dataSets = append(dataSets, dataSet)
 		}
 	}
@@ -150,20 +161,37 @@ func parseDataSets(dataSet []byte) ([]Data, error) {
 	return dataSets, nil
 }
 
-func getTaskSolution(dataSets []Data) Solution {
+func getTaskSolution(taskName string, dataSets []Data) (Solution, error) {
 	var solution Solution
 	solution.UserName = UserName
-	solution.Task = "Циклическая ротация"
+	solution.Task = taskName
 
 	var taskResults TaskResults
 	for _, dataSet := range dataSets {
 		var taskPayload []interface{}
-		taskResults.Payload = append(taskResults.Payload, append(taskPayload, dataSet.Set, dataSet.Shift))
-		taskResults.Results = append(taskResults.Results, cyclic_rotation.Solution(dataSet.Set, dataSet.Shift))
+		taskPayload = append(taskPayload, dataSet.Set)
+		if dataSet.Shift > 0 {
+			taskPayload = append(taskPayload, dataSet.Shift)
+		}
+
+		taskResults.Payload = append(taskResults.Payload, taskPayload)
+
+		switch taskName {
+		case cyclicRotation:
+			taskResults.Results = append(taskResults.Results, cyclic_rotation.Solution(dataSet.Set, dataSet.Shift))
+		case uniqueElement:
+			taskResults.Results = append(taskResults.Results, unique_element.Solution(dataSet.Set))
+		case sequenceCheck:
+			taskResults.Results = append(taskResults.Results, sequence_check.Solution(dataSet.Set))
+		case searchElement:
+			taskResults.Results = append(taskResults.Results, search_element.Solution(dataSet.Set))
+		default:
+			return solution, errors.New("task name is not found")
+		}
 	}
 	solution.Results = taskResults
 
-	return solution
+	return solution, nil
 }
 
 func getResult(solution Solution, client *http.Client, request *http.Request) ([]byte, error) {
@@ -175,12 +203,38 @@ func getResult(solution Solution, client *http.Client, request *http.Request) ([
 	path, _ := url.Parse(SolutionServerPath + "/tasks/solution")
 
 	newRequest, err := getNewRequest(path, http.MethodPost, raw, request)
-
 	if err != nil {
 		return nil, err
 	}
 
 	response, err := getResponse(client, newRequest)
+	if err != nil {
+		return nil, err
+	}
 
 	return response, nil
+}
+
+func solveTask(taskName string, client *http.Client, request *http.Request) ([]byte, error) {
+	dataSets, err := getDataSets(taskName, client, request)
+	if err != nil {
+		return nil, err
+	}
+
+	data, err := parseDataSets(dataSets)
+	if err != nil {
+		return nil, err
+	}
+
+	solution, err := getTaskSolution(taskName, data)
+	if err != nil {
+		return nil, err
+	}
+
+	result, err := getResult(solution, client, request)
+	if err != nil {
+		return nil, err
+	}
+
+	return result, nil
 }

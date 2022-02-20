@@ -1,20 +1,10 @@
-// Package main Чудные вхождения в массив
-package main
+// Package unique_element Чудные вхождения в массив
+package unique_element
 
-import (
-	"fmt"
-)
-
-func main() {
-	A := []int{4, 4, 3, 5, 1, 5, 1}
-
-	fmt.Println(Solution(A))
-}
-
-func Solution(A []int) int {
+func Solution(set []int) int {
 	xorResult := 0
 
-	for _, number := range A {
+	for _, number := range set {
 		xorResult = xorResult ^ number
 	}
 

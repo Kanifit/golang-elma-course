@@ -1,21 +1,14 @@
-// Package main Проверка последовательности
-package main
+// Package sequence_check Проверка последовательности
+package sequence_check
 
 import (
-	"fmt"
 	"sort"
 )
 
-func main() {
-	A := []int{4, 1, 3, 2}
+func Solution(set []int) int {
+	sort.Ints(set)
 
-	fmt.Println(Solution(A))
-}
-
-func Solution(A []int) int {
-	sort.Ints(A)
-
-	for i, number := range A {
+	for i, number := range set {
 		if i+1 != number {
 			return 0
 		}
